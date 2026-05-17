@@ -110,23 +110,23 @@ const saveEditedSale = async (payload: {
 
     <p v-if="errorMessage" class="mb-3 rounded-lg bg-red-50 p-3 text-sm font-bold text-red-700">{{ errorMessage }}</p>
 
-    <div class="space-y-3">
-      <div v-for="sale in sales" :key="sale.id" class="space-y-3">
-        <SaleHistoryItem
-          :sale="sale"
-          @cancel="cancelSale"
-          @edit="startEditingSale"
-        />
+    <SaleEditPanel
+      v-if="editingSale"
+      :key="`${editingSale.id}-${editingSession}`"
+      :sale="editingSale"
+      :products="productsStore.activeProducts"
+      @save="saveEditedSale"
+      @cancel="editingSale = undefined"
+    />
 
-        <SaleEditPanel
-          v-if="editingSale?.id === sale.id"
-          :key="`${editingSale.id}-${editingSession}`"
-          :sale="editingSale"
-          :products="productsStore.activeProducts"
-          @save="saveEditedSale"
-          @cancel="editingSale = undefined"
-        />
-      </div>
+    <div class="space-y-3">
+      <SaleHistoryItem
+        v-for="sale in sales"
+        :key="sale.id"
+        :sale="sale"
+        @cancel="cancelSale"
+        @edit="startEditingSale"
+      />
     </div>
 
     <p v-if="sales.length === 0" class="mt-12 text-center font-semibold text-slate-500">

@@ -79,70 +79,78 @@ const save = () => {
 </script>
 
 <template>
-  <section class="mb-4 rounded-xl border border-slate-200 bg-white p-4 shadow-lg">
-    <div class="mb-4 flex items-start justify-between gap-3">
-      <div>
-        <h2 class="text-xl font-black">Editar pedido</h2>
-        <p class="text-sm font-semibold text-slate-500">A venda será atualizada no histórico.</p>
-      </div>
-      <button type="button" class="rounded-lg bg-slate-100 px-3 py-2 text-sm font-black" @click="$emit('cancel')">
-        Fechar
-      </button>
-    </div>
-
-    <div class="space-y-3">
-      <article v-for="item in items" :key="item.productId" class="rounded-lg border border-slate-200 p-3">
-        <div class="flex items-start justify-between gap-3">
+  <section class="fixed inset-0 z-50 bg-slate-950/50">
+    <div class="mx-auto flex h-dvh w-full max-w-2xl flex-col bg-white shadow-2xl">
+      <header class="sticky top-0 z-10 border-b border-slate-200 bg-white px-4 py-3">
+        <div class="flex items-center justify-between gap-3">
           <div>
-            <p class="font-black text-slate-950">{{ item.productName }}</p>
-            <p class="text-sm font-semibold text-slate-500">{{ formatCurrency(item.unitPrice) }} cada</p>
+            <h2 class="text-xl font-black">Editar pedido</h2>
+            <p class="text-sm font-semibold text-slate-500">A venda sera atualizada no historico.</p>
           </div>
-          <p class="font-black text-emerald-700">{{ formatCurrency(item.total) }}</p>
-        </div>
-        <div class="mt-3 flex items-center justify-between gap-3">
-          <div class="flex items-center gap-2">
-            <button type="button" class="grid h-10 w-10 place-items-center rounded-lg bg-slate-100 text-xl font-black" @click="setQuantity(item.productId, item.quantity - 1)">-</button>
-            <span class="w-10 text-center font-black">{{ item.quantity }}</span>
-            <button type="button" class="grid h-10 w-10 place-items-center rounded-lg bg-slate-950 text-xl font-black text-white" @click="setQuantity(item.productId, item.quantity + 1)">+</button>
-          </div>
-          <button type="button" class="rounded-lg px-3 py-2 text-sm font-bold text-red-600" @click="setQuantity(item.productId, 0)">
-            Remover
+          <button type="button" class="rounded-lg bg-slate-100 px-3 py-2 text-sm font-black" @click="$emit('cancel')">
+            Fechar
           </button>
         </div>
-      </article>
-    </div>
+      </header>
 
-    <div class="mt-4">
-      <p class="mb-2 text-sm font-black text-slate-600">Adicionar produto</p>
-      <div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
+      <div class="flex-1 overflow-y-auto px-4 py-4 pb-28">
+        <div class="space-y-3">
+          <article v-for="item in items" :key="item.productId" class="rounded-lg border border-slate-200 p-3">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <p class="font-black text-slate-950">{{ item.productName }}</p>
+                <p class="text-sm font-semibold text-slate-500">{{ formatCurrency(item.unitPrice) }} cada</p>
+              </div>
+              <p class="font-black text-emerald-700">{{ formatCurrency(item.total) }}</p>
+            </div>
+            <div class="mt-3 flex items-center justify-between gap-3">
+              <div class="flex items-center gap-2">
+                <button type="button" class="grid h-10 w-10 place-items-center rounded-lg bg-slate-100 text-xl font-black" @click="setQuantity(item.productId, item.quantity - 1)">-</button>
+                <span class="w-10 text-center font-black">{{ item.quantity }}</span>
+                <button type="button" class="grid h-10 w-10 place-items-center rounded-lg bg-slate-950 text-xl font-black text-white" @click="setQuantity(item.productId, item.quantity + 1)">+</button>
+              </div>
+              <button type="button" class="rounded-lg px-3 py-2 text-sm font-bold text-red-600" @click="setQuantity(item.productId, 0)">
+                Remover
+              </button>
+            </div>
+          </article>
+        </div>
+
+        <div class="mt-4">
+          <p class="mb-2 text-sm font-black text-slate-600">Adicionar produto</p>
+          <div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            <button
+              v-for="product in products"
+              :key="product.id"
+              type="button"
+              class="rounded-lg border border-slate-200 px-3 py-3 text-left text-sm font-black"
+              @click="addProduct(product)"
+            >
+              {{ product.name }}
+              <span class="block text-emerald-700">{{ formatCurrency(product.price) }}</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="mt-4 rounded-lg bg-slate-50 p-4">
+          <div class="mb-4 flex items-center justify-between">
+            <span class="text-sm font-bold uppercase text-slate-500">Novo total</span>
+            <span class="text-3xl font-black text-slate-950">{{ formatCurrency(total) }}</span>
+          </div>
+          <PaymentPanel v-model:payment-method="paymentMethod" v-model:amount-received="amountReceived" :total="total" />
+        </div>
+      </div>
+
+      <footer class="sticky bottom-0 border-t border-slate-200 bg-white p-4">
         <button
-          v-for="product in products"
-          :key="product.id"
           type="button"
-          class="rounded-lg border border-slate-200 px-3 py-3 text-left text-sm font-black"
-          @click="addProduct(product)"
+          class="w-full rounded-lg bg-emerald-600 py-4 text-lg font-black text-white shadow-lg shadow-emerald-200 disabled:bg-slate-300 disabled:shadow-none"
+          :disabled="!canSave"
+          @click="save"
         >
-          {{ product.name }}
-          <span class="block text-emerald-700">{{ formatCurrency(product.price) }}</span>
+          Salvar alteracoes
         </button>
-      </div>
+      </footer>
     </div>
-
-    <div class="mt-4 rounded-lg bg-slate-50 p-4">
-      <div class="mb-4 flex items-center justify-between">
-        <span class="text-sm font-bold uppercase text-slate-500">Novo total</span>
-        <span class="text-3xl font-black text-slate-950">{{ formatCurrency(total) }}</span>
-      </div>
-      <PaymentPanel v-model:payment-method="paymentMethod" v-model:amount-received="amountReceived" :total="total" />
-    </div>
-
-    <button
-      type="button"
-      class="mt-4 w-full rounded-lg bg-emerald-600 py-4 text-lg font-black text-white shadow-lg shadow-emerald-200 disabled:bg-slate-300 disabled:shadow-none"
-      :disabled="!canSave"
-      @click="save"
-    >
-      Salvar alterações
-    </button>
   </section>
 </template>
