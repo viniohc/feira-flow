@@ -1,7 +1,6 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { db } from '@/services/db'
-import { saveCloudProduct, updateCloudProduct } from '@/services/firestore/products'
 import { useFairsStore } from '@/stores/fairs'
 import type { Product, ProductCategory } from '@/types/models'
 
@@ -55,9 +54,6 @@ export const useProductsStore = defineStore('products', () => {
     }
 
     await db.products.put(product)
-    void saveCloudProduct(product).catch(() => {
-      // Offline-first: o dado local fica salvo e pode ser sincronizado depois.
-    })
     await loadProducts()
   }
 
@@ -67,9 +63,6 @@ export const useProductsStore = defineStore('products', () => {
       updatedAt: new Date().toISOString(),
     }
     await db.products.update(product.id, updated)
-    void updateCloudProduct(product.id, { ...updated, fairId: product.fairId }).catch(() => {
-      // Mantem local e sincroniza depois.
-    })
     await loadProducts()
   }
 
@@ -82,9 +75,6 @@ export const useProductsStore = defineStore('products', () => {
     }
 
     await db.products.update(product.id, updated)
-    void updateCloudProduct(product.id, { ...updated, fairId: product.fairId }).catch(() => {
-      // Mantem local e sincroniza depois.
-    })
     await loadProducts()
   }
 

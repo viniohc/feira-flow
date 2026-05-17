@@ -9,7 +9,8 @@ npm install
 npm run dev
 ```
 
-Antes de usar em outro aparelho, faça login, escolha a feira correta e toque em **Sync** para puxar os dados mais recentes do Firestore.
+O app salva vendas e produtos primeiro no aparelho. O Firestore só é usado quando você toca em **Sync**.
+Antes de usar em outro aparelho, faça login, escolha a feira correta e toque em **Sync** para enviar e puxar os dados mais recentes.
 
 Para validar:
 
@@ -103,6 +104,7 @@ Evite publicar regras como `allow read, write: if true`. Nesta versão, cada fei
 - Evite `onSnapshot()` em telas que não precisam de tempo real.
 - Use `limit()` nas queries. Os services já aplicam limites.
 - Busque vendas por `dateKey`, nunca a coleção inteira.
+- Sincronize manualmente apenas quando precisar atualizar outro aparelho.
 - Não ative TTL deletes, PITR, backups, restore ou clone.
 - Não adicione Cloud Functions nesta versão.
 - Exporte relatórios localmente quando possível.

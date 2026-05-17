@@ -21,11 +21,6 @@ onMounted(async () => {
   await fairsStore.loadFairs()
   if (!fairsStore.selectedFairId) return
 
-  try {
-    await fairsStore.syncSelectedFairFromCloud()
-  } catch {
-    // Offline-first: inicia com os dados locais quando não conseguir baixar.
-  }
   await seedDatabase(fairsStore.selectedFairId)
   await Promise.all([
     productsStore.loadProducts(),

@@ -2,7 +2,6 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { db } from '@/services/db'
 import { getDateKey } from '@/services/date'
-import { cancelCloudSale, saveCloudSale, updateCloudSale } from '@/services/firestore/sales'
 import { useFairsStore } from '@/stores/fairs'
 import type { CartItem, PaymentMethod, Sale } from '@/types/models'
 
@@ -79,24 +78,15 @@ export const useSalesStore = defineStore('sales', () => {
     }
 
     await db.sales.add(sale)
-    void saveCloudSale(sale).catch(() => {
-      // Offline-first: venda fica local e pode ser sincronizada depois.
-    })
     await loadSales()
     return sale
   }
 
   const cancelSale = async (saleId: string) => {
-    const sale = await db.sales.get(saleId)
     await db.sales.update(saleId, {
       status: 'cancelled',
       cancelledAt: new Date().toISOString(),
     })
-    if (sale) {
-      void cancelCloudSale(sale.fairId, saleId).catch(() => {
-        // Mantem local e sincroniza depois.
-      })
-    }
     await loadSales()
   }
 
@@ -137,9 +127,6 @@ export const useSalesStore = defineStore('sales', () => {
     }
 
     await db.sales.update(saleId, updatedSale)
-    void updateCloudSale(saleId, updatedSale).catch(() => {
-      // Mantem local e sincroniza depois.
-    })
     await loadSales()
   }
 

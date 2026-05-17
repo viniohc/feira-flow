@@ -26,11 +26,6 @@ onMounted(async () => {
 const openFair = async (fairId: string) => {
   await fairsStore.selectFair(fairId)
   cartStore.clearCart()
-  try {
-    await fairsStore.syncSelectedFairFromCloud()
-  } catch {
-    // Offline-first: abre com os dados locais quando não conseguir baixar.
-  }
   await seedDatabase(fairId)
   await Promise.all([
     productsStore.loadProducts(),
