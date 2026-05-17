@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import SaleEditPanel from '@/components/SaleEditPanel.vue'
 import SaleHistoryItem from '@/components/SaleHistoryItem.vue'
 import { getDateKey } from '@/services/date'
@@ -16,6 +16,7 @@ const settingsStore = useSettingsStore()
 const selectedDate = ref(getDateKey())
 const historyMode = ref<'day' | 'all'>('day')
 const editingSale = ref<Sale | undefined>()
+const editingSession = ref(0)
 const errorMessage = ref('')
 const syncing = ref(false)
 const sales = computed(() =>
@@ -59,9 +60,11 @@ const cancelSale = async (saleId: string) => {
 }
 
 const startEditingSale = async (sale: Sale) => {
-  editingSale.value = undefined
-  await nextTick()
-  editingSale.value = sale
+  editingSale.value = {
+    ...sale,
+    items: sale.items.map((item) => ({ ...item })),
+  }
+  editingSession.value += 1
 }
 
 const saveEditedSale = async (payload: {
@@ -107,23 +110,23 @@ const saveEditedSale = async (payload: {
 
     <p v-if="errorMessage" class="mb-3 rounded-lg bg-red-50 p-3 text-sm font-bold text-red-700">{{ errorMessage }}</p>
 
-    <SaleEditPanel
-      v-if="editingSale"
-      :key="editingSale.id"
-      :sale="editingSale"
-      :products="productsStore.activeProducts"
-      @save="saveEditedSale"
-      @cancel="editingSale = undefined"
-    />
-
     <div class="space-y-3">
-      <SaleHistoryItem
-        v-for="sale in sales"
-        :key="sale.id"
-        :sale="sale"
-        @cancel="cancelSale"
-        @edit="startEditingSale"
-      />
+      <div v-for="sale in sales" :key="sale.id" class="space-y-3">
+        <SaleHistoryItem
+          :sale="sale"
+          @cancel="cancelSale"
+          @edit="startEditingSale"
+        />
+
+        <SaleEditPanel
+          v-if="editingSale?.id === sale.id"
+          :key="`${editingSale.id}-${editingSession}`"
+          :sale="editingSale"
+          :products="productsStore.activeProducts"
+          @save="saveEditedSale"
+          @cancel="editingSale = undefined"
+        />
+      </div>
     </div>
 
     <p v-if="sales.length === 0" class="mt-12 text-center font-semibold text-slate-500">
