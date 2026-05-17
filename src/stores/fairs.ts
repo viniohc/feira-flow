@@ -1,10 +1,10 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { db, migrateLegacyDataToFair, seedDatabase } from '@/services/db'
-import { listCloudFairs, saveCloudFair } from '@/services/firestore/fairs'
-import { saveCloudProduct } from '@/services/firestore/products'
-import { saveCloudSale } from '@/services/firestore/sales'
-import { saveCloudSettings } from '@/services/firestore/settings'
+import { listCloudFairs, saveCloudFair, updateCloudFair } from '@/services/firestore/fairs'
+import { listCloudProducts, saveCloudProduct } from '@/services/firestore/products'
+import { listCloudSales, saveCloudSale } from '@/services/firestore/sales'
+import { getCloudSettings, saveCloudSettings } from '@/services/firestore/settings'
 import { useAuthStore } from '@/stores/auth'
 import type { Fair } from '@/types/models'
 
@@ -39,7 +39,6 @@ export const useFairsStore = defineStore('fairs', () => {
     selectedFairId.value = fairId
     localStorage.setItem(SELECTED_FAIR_KEY, fairId)
     await migrateLegacyDataToFair(fairId)
-    await seedDatabase(fairId)
   }
 
   const createFair = async (name: string) => {
@@ -65,7 +64,29 @@ export const useFairsStore = defineStore('fairs', () => {
     fairs.value = [fair, ...fairs.value.filter((item) => item.id !== fair.id)]
     await saveCloudFair(fair)
     await selectFair(fair.id)
+    await seedDatabase(fair.id)
     return fair
+  }
+
+  const syncSelectedFairFromCloud = async () => {
+    if (!selectedFairId.value) {
+      throw new Error('Selecione uma feira para sincronizar.')
+    }
+
+    syncMessage.value = 'Baixando dados...'
+    const [cloudProducts, cloudSales, cloudSettings] = await Promise.all([
+      listCloudProducts(selectedFairId.value),
+      listCloudSales(selectedFairId.value),
+      getCloudSettings(selectedFairId.value),
+    ])
+
+    await Promise.all([
+      cloudProducts.length ? db.products.bulkPut(cloudProducts) : Promise.resolve(),
+      cloudSales.length ? db.sales.bulkPut(cloudSales) : Promise.resolve(),
+      cloudSettings ? db.settings.put(cloudSettings) : Promise.resolve(),
+    ])
+
+    syncMessage.value = 'Dados atualizados'
   }
 
   const syncSelectedFairToCloud = async () => {
@@ -73,7 +94,7 @@ export const useFairsStore = defineStore('fairs', () => {
       throw new Error('Selecione uma feira para sincronizar.')
     }
 
-    syncMessage.value = 'Sincronizando...'
+    syncMessage.value = 'Enviando dados...'
     const fair = await db.fairs.get(selectedFairId.value)
     if (fair) {
       await saveCloudFair(fair)
@@ -91,7 +112,35 @@ export const useFairsStore = defineStore('fairs', () => {
       ...settings.map(saveCloudSettings),
     ])
 
+    await syncSelectedFairFromCloud()
     syncMessage.value = 'Sincronizado'
+  }
+
+  const addMemberToSelectedFair = async (memberUid: string) => {
+    const cleanUid = memberUid.trim()
+    if (!selectedFairId.value || !cleanUid) {
+      throw new Error('Informe o ID do usuário.')
+    }
+
+    const fair = await db.fairs.get(selectedFairId.value)
+    if (!fair) {
+      throw new Error('Feira não encontrada.')
+    }
+
+    const updatedFair: Fair = {
+      ...fair,
+      members: {
+        ...fair.members,
+        [cleanUid]: true,
+      },
+      updatedAt: new Date().toISOString(),
+    }
+
+    await db.fairs.put(updatedFair)
+    fairs.value = fairs.value.map((item) => (item.id === updatedFair.id ? updatedFair : item))
+    await updateCloudFair(updatedFair.id, {
+      members: updatedFair.members,
+    })
   }
 
   const clearSelection = () => {
@@ -109,7 +158,9 @@ export const useFairsStore = defineStore('fairs', () => {
     loadFairs,
     selectFair,
     createFair,
+    syncSelectedFairFromCloud,
     syncSelectedFairToCloud,
+    addMemberToSelectedFair,
     clearSelection,
   }
 })

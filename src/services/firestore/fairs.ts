@@ -1,4 +1,4 @@
-import { byField, getCollection, getDocument, setDocument } from '@/services/firestore/base'
+import { byField, getCollection, getDocument, patchDocument, setDocument } from '@/services/firestore/base'
 import type { Fair } from '@/types/models'
 
 const COLLECTION = 'fairs'
@@ -11,3 +11,9 @@ export const listCloudFairs = async (userId: string) => {
 export const getCloudFair = (fairId: string) => getDocument<Fair>(COLLECTION, fairId)
 
 export const saveCloudFair = (fair: Fair) => setDocument(COLLECTION, fair)
+
+export const updateCloudFair = (fairId: string, fair: Partial<Fair>) =>
+  patchDocument<Fair>(COLLECTION, fairId, {
+    ...fair,
+    updatedAt: new Date().toISOString(),
+  })

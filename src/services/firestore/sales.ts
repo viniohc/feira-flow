@@ -3,6 +3,11 @@ import type { Sale } from '@/types/models'
 
 const collectionPath = (fairId: string) => `fairs/${fairId}/sales`
 
+export const listCloudSales = async (fairId: string, max = FIRESTORE_LIMITS.salesPerFair) => {
+  const sales = await getCollection<Sale>(collectionPath(fairId), max)
+  return sales.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+}
+
 export const listCloudSalesByDate = async (fairId: string, dateKey: string, max = FIRESTORE_LIMITS.salesPerDay) => {
   const sales = await getCollection<Sale>(collectionPath(fairId), max, [byField('dateKey', '==', dateKey)])
   return sales.sort((a, b) => b.createdAt.localeCompare(a.createdAt))

@@ -18,6 +18,7 @@ import { ensureFirebaseSignedIn, getFirebaseDb } from '@/lib/firebase'
 export const FIRESTORE_LIMITS = {
   products: 100,
   salesPerDay: 300,
+  salesPerFair: 2000,
   settings: 1,
 } as const
 

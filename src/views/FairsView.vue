@@ -17,6 +17,7 @@ const salesStore = useSalesStore()
 const settingsStore = useSettingsStore()
 const cartStore = useCartStore()
 const newFairName = ref('')
+const memberUid = ref('')
 const errorMessage = ref('')
 
 onMounted(async () => {
@@ -26,6 +27,11 @@ onMounted(async () => {
 const openFair = async (fairId: string) => {
   await fairsStore.selectFair(fairId)
   cartStore.clearCart()
+  try {
+    await fairsStore.syncSelectedFairFromCloud()
+  } catch {
+    // Offline-first: abre com os dados locais quando não conseguir baixar.
+  }
   await seedDatabase(fairId)
   await Promise.all([
     productsStore.loadProducts(),
@@ -33,6 +39,16 @@ const openFair = async (fairId: string) => {
     settingsStore.loadSettings(),
   ])
   router.push('/sale')
+}
+
+const addMember = async () => {
+  errorMessage.value = ''
+  try {
+    await fairsStore.addMemberToSelectedFair(memberUid.value)
+    memberUid.value = ''
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : 'Não foi possível adicionar o usuário.'
+  }
 }
 
 const createFair = async () => {
@@ -75,6 +91,22 @@ const logout = async () => {
       </button>
       <p v-if="errorMessage" class="mt-3 rounded-lg bg-red-50 p-3 text-sm font-bold text-red-700">{{ errorMessage }}</p>
     </form>
+
+    <section class="mb-5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <p class="text-sm font-bold text-slate-600">Seu ID de usuário</p>
+      <p class="mt-1 break-all rounded-lg bg-slate-50 p-3 text-xs font-bold text-slate-700">
+        {{ authStore.user?.uid }}
+      </p>
+      <form v-if="fairsStore.selectedFairId" class="mt-3" @submit.prevent="addMember">
+        <label class="block">
+          <span class="text-sm font-bold text-slate-600">Adicionar usuário à feira atual pelo ID</span>
+          <input v-model.trim="memberUid" class="mt-1 h-12 w-full rounded-lg border border-slate-300 px-3 font-semibold outline-none focus:border-slate-950" placeholder="Cole aqui o UID do outro usuário">
+        </label>
+        <button type="submit" class="mt-3 w-full rounded-lg bg-slate-950 py-3 font-black text-white">
+          Liberar acesso
+        </button>
+      </form>
+    </section>
 
     <div class="space-y-3">
       <button
