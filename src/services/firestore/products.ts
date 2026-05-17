@@ -1,4 +1,4 @@
-import { byField, FIRESTORE_LIMITS, getCollection, patchDocument, setDocument, orderedBy } from '@/services/firestore/base'
+import { byField, FIRESTORE_LIMITS, getCollection, patchDocument, setDocument } from '@/services/firestore/base'
 import type { Product } from '@/types/models'
 
 const collectionPath = (fairId: string) => `fairs/${fairId}/products`
@@ -10,10 +10,11 @@ export const listCloudProducts = async (fairId: string, includeInactive = true) 
   const products = await getCollection<Product>(
     collectionPath(fairId),
     FIRESTORE_LIMITS.products,
-    includeInactive ? [orderedBy('sortOrder', 'asc')] : [byField('active', '==', true)],
+    includeInactive ? [] : [byField('active', '==', true)],
   )
 
-  return includeInactive ? products : sortProducts(products)
+  const visibleProducts = products.filter((product) => !product.deleted)
+  return sortProducts(visibleProducts)
 }
 
 export const saveCloudProduct = (product: Product) => setDocument(collectionPath(product.fairId), product)

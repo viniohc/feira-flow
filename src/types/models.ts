@@ -12,6 +12,8 @@ export interface Product {
   category: ProductCategory
   active: boolean
   sortOrder: number
+  deleted?: boolean
+  deletedAt?: string
   createdAt: string
   updatedAt: string
 }

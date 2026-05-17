@@ -1,7 +1,7 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { db, migrateLegacyDataToFair, seedDatabase } from '@/services/db'
-import { listCloudFairs, saveCloudFair, updateCloudFair } from '@/services/firestore/fairs'
+import { cleanupDuplicateProducts, db, migrateLegacyDataToFair, seedDatabase } from '@/services/db'
+import { listCloudFairs, saveCloudFair } from '@/services/firestore/fairs'
 import { listCloudProducts, saveCloudProduct } from '@/services/firestore/products'
 import { listCloudSales, saveCloudSale } from '@/services/firestore/sales'
 import { getCloudSettings, saveCloudSettings } from '@/services/firestore/settings'
@@ -85,6 +85,7 @@ export const useFairsStore = defineStore('fairs', () => {
       cloudSales.length ? db.sales.bulkPut(cloudSales) : Promise.resolve(),
       cloudSettings ? db.settings.put(cloudSettings) : Promise.resolve(),
     ])
+    await cleanupDuplicateProducts(selectedFairId.value)
 
     syncMessage.value = 'Dados atualizados'
   }
@@ -113,34 +114,9 @@ export const useFairsStore = defineStore('fairs', () => {
     ])
 
     await syncSelectedFairFromCloud()
+    const productsAfterCleanup = await db.products.where('fairId').equals(selectedFairId.value).toArray()
+    await Promise.all(productsAfterCleanup.map(saveCloudProduct))
     syncMessage.value = 'Sincronizado'
-  }
-
-  const addMemberToSelectedFair = async (memberUid: string) => {
-    const cleanUid = memberUid.trim()
-    if (!selectedFairId.value || !cleanUid) {
-      throw new Error('Informe o ID do usuário.')
-    }
-
-    const fair = await db.fairs.get(selectedFairId.value)
-    if (!fair) {
-      throw new Error('Feira não encontrada.')
-    }
-
-    const updatedFair: Fair = {
-      ...fair,
-      members: {
-        ...fair.members,
-        [cleanUid]: true,
-      },
-      updatedAt: new Date().toISOString(),
-    }
-
-    await db.fairs.put(updatedFair)
-    fairs.value = fairs.value.map((item) => (item.id === updatedFair.id ? updatedFair : item))
-    await updateCloudFair(updatedFair.id, {
-      members: updatedFair.members,
-    })
   }
 
   const clearSelection = () => {
@@ -160,7 +136,6 @@ export const useFairsStore = defineStore('fairs', () => {
     createFair,
     syncSelectedFairFromCloud,
     syncSelectedFairToCloud,
-    addMemberToSelectedFair,
     clearSelection,
   }
 })

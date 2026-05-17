@@ -22,6 +22,12 @@ export class FeiraDatabase extends Dexie {
       settings: 'id, fairId',
       fairs: 'id, ownerId, active',
     })
+    this.version(3).stores({
+      products: 'id, fairId, [fairId+category], [fairId+active], deleted, sortOrder',
+      sales: 'id, fairId, [fairId+dateKey], createdAt, status, paymentMethod',
+      settings: 'id, fairId',
+      fairs: 'id, ownerId, active',
+    })
   }
 }
 
@@ -47,68 +53,67 @@ export const migrateLegacyDataToFair = async (fairId: string) => {
   ])
 }
 
+const slugify = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '')
+
+const exampleProducts = [
+  { slug: 'pastel', name: 'Pastel', price: 8, category: 'Comidas' as const, sortOrder: 1 },
+  { slug: 'bolo', name: 'Bolo', price: 6, category: 'Sobremesas' as const, sortOrder: 2 },
+  { slug: 'refrigerante', name: 'Refrigerante', price: 5, category: 'Bebidas' as const, sortOrder: 3 },
+  { slug: 'suco', name: 'Suco', price: 4, category: 'Bebidas' as const, sortOrder: 4 },
+  { slug: 'cachorro-quente', name: 'Cachorro-quente', price: 10, category: 'Comidas' as const, sortOrder: 5 },
+]
+
+export const cleanupDuplicateProducts = async (fairId: string) => {
+  const products = await db.products.where('fairId').equals(fairId).toArray()
+  const groupedProducts = new Map<string, Product[]>()
+
+  products
+    .filter((product) => !product.deleted)
+    .forEach((product) => {
+      const key = `${slugify(product.name)}|${product.category}|${product.price}`
+      groupedProducts.set(key, [...(groupedProducts.get(key) ?? []), product])
+    })
+
+  const timestamp = nowIso()
+  await Promise.all(
+    Array.from(groupedProducts.values()).flatMap((group) => {
+      const sortedGroup = group.sort((a, b) => a.sortOrder - b.sortOrder || a.createdAt.localeCompare(b.createdAt))
+      return sortedGroup.slice(1).map((product) =>
+        db.products.update(product.id, {
+          active: false,
+          deleted: true,
+          deletedAt: timestamp,
+          updatedAt: timestamp,
+        }),
+      )
+    }),
+  )
+}
+
 export const seedDatabase = async (fairId: string) => {
-  const productCount = await db.products.where('fairId').equals(fairId).count()
+  const productCount = await db.products.where('fairId').equals(fairId).and((product) => !product.deleted).count()
   const createdAt = nowIso()
 
   if (productCount === 0) {
-    await db.products.bulkAdd([
-      {
-        id: crypto.randomUUID(),
+    await db.products.bulkPut(
+      exampleProducts.map((product) => ({
+        id: `${fairId}-${product.slug}`,
         fairId,
-        name: 'Pastel',
-        price: 8,
-        category: 'Comidas',
+        name: product.name,
+        price: product.price,
+        category: product.category,
         active: true,
-        sortOrder: 1,
+        sortOrder: product.sortOrder,
         createdAt,
         updatedAt: createdAt,
-      },
-      {
-        id: crypto.randomUUID(),
-        fairId,
-        name: 'Bolo',
-        price: 6,
-        category: 'Sobremesas',
-        active: true,
-        sortOrder: 2,
-        createdAt,
-        updatedAt: createdAt,
-      },
-      {
-        id: crypto.randomUUID(),
-        fairId,
-        name: 'Refrigerante',
-        price: 5,
-        category: 'Bebidas',
-        active: true,
-        sortOrder: 3,
-        createdAt,
-        updatedAt: createdAt,
-      },
-      {
-        id: crypto.randomUUID(),
-        fairId,
-        name: 'Suco',
-        price: 4,
-        category: 'Bebidas',
-        active: true,
-        sortOrder: 4,
-        createdAt,
-        updatedAt: createdAt,
-      },
-      {
-        id: crypto.randomUUID(),
-        fairId,
-        name: 'Cachorro-quente',
-        price: 10,
-        category: 'Comidas',
-        active: true,
-        sortOrder: 5,
-        createdAt,
-        updatedAt: createdAt,
-      },
-    ])
+      })),
+    )
   }
 
   const settingsId = `default-${fairId}`

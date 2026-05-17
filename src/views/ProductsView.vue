@@ -34,6 +34,12 @@ const saveProduct = async (payload: Parameters<typeof productsStore.saveProduct>
   await productsStore.saveProduct(payload)
   closeForm()
 }
+
+const deleteProduct = async (product: Product) => {
+  if (window.confirm(`Excluir ${product.name} do cadastro? As vendas antigas continuam no histórico.`)) {
+    await productsStore.deleteProduct(product)
+  }
+}
 </script>
 
 <template>
@@ -68,12 +74,15 @@ const saveProduct = async (payload: Parameters<typeof productsStore.saveProduct>
             </span>
           </div>
         </div>
-        <div class="mt-4 grid grid-cols-2 gap-2">
+        <div class="mt-4 grid grid-cols-3 gap-2">
           <button type="button" class="rounded-lg border border-slate-200 py-3 text-sm font-black" @click="editProduct(product)">
             Editar
           </button>
           <button type="button" class="rounded-lg bg-slate-100 py-3 text-sm font-black text-slate-700" @click="productsStore.toggleProduct(product)">
             {{ product.active ? 'Desativar' : 'Ativar' }}
+          </button>
+          <button type="button" class="rounded-lg bg-red-50 py-3 text-sm font-black text-red-700" @click="deleteProduct(product)">
+            Excluir
           </button>
         </div>
       </article>

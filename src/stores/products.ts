@@ -14,7 +14,7 @@ export const useProductsStore = defineStore('products', () => {
   const products = ref<Product[]>([])
   const loading = ref(false)
 
-  const activeProducts = computed(() => sortProducts(products.value.filter((product) => product.active)))
+  const activeProducts = computed(() => sortProducts(products.value.filter((product) => product.active && !product.deleted)))
 
   const loadProducts = async () => {
     const fairsStore = useFairsStore()
@@ -24,7 +24,9 @@ export const useProductsStore = defineStore('products', () => {
     }
 
     loading.value = true
-    products.value = sortProducts(await db.products.where('fairId').equals(fairsStore.selectedFairId).toArray())
+    products.value = sortProducts(
+      (await db.products.where('fairId').equals(fairsStore.selectedFairId).toArray()).filter((product) => !product.deleted),
+    )
     loading.value = false
   }
 
@@ -75,6 +77,23 @@ export const useProductsStore = defineStore('products', () => {
     await loadProducts()
   }
 
+  const deleteProduct = async (product: Product) => {
+    const updated = {
+      active: false,
+      deleted: true,
+      deletedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+
+    await db.products.update(product.id, updated)
+    try {
+      await updateCloudProduct(product.id, { ...updated, fairId: product.fairId })
+    } catch {
+      // Mantem local e sincroniza depois.
+    }
+    await loadProducts()
+  }
+
   return {
     products,
     activeProducts,
@@ -82,5 +101,6 @@ export const useProductsStore = defineStore('products', () => {
     loadProducts,
     saveProduct,
     toggleProduct,
+    deleteProduct,
   }
 })
