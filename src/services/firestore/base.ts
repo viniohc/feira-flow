@@ -27,6 +27,22 @@ const withId = <T>(snapshot: { id: string; data: () => DocumentData }) => ({
   ...snapshot.data(),
 }) as T
 
+const removeUndefinedFields = (value: unknown): unknown => {
+  if (Array.isArray(value)) {
+    return value.map(removeUndefinedFields)
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .filter(([, fieldValue]) => fieldValue !== undefined)
+        .map(([key, fieldValue]) => [key, removeUndefinedFields(fieldValue)]),
+    )
+  }
+
+  return value
+}
+
 export const getCollection = async <T>(collectionPath: string, max = 50, constraints: QueryConstraint[] = []) => {
   await ensureFirebaseSignedIn()
   const collectionRef = collection(getFirebaseDb(), collectionPath)
@@ -42,7 +58,10 @@ export const getDocument = async <T>(collectionPath: string, documentId: string)
 
 export const setDocument = async <T extends { id: string }>(collectionPath: string, data: T) => {
   await ensureFirebaseSignedIn()
-  await setDoc(doc(getFirebaseDb(), collectionPath, data.id), data as WithFieldValue<DocumentData>)
+  await setDoc(
+    doc(getFirebaseDb(), collectionPath, data.id),
+    removeUndefinedFields(data) as WithFieldValue<DocumentData>,
+  )
 }
 
 export const patchDocument = async <T extends object>(
@@ -51,7 +70,7 @@ export const patchDocument = async <T extends object>(
   data: Partial<T>,
 ) => {
   await ensureFirebaseSignedIn()
-  await updateDoc(doc(getFirebaseDb(), collectionPath, documentId), data as DocumentData)
+  await updateDoc(doc(getFirebaseDb(), collectionPath, documentId), removeUndefinedFields(data) as DocumentData)
 }
 
 export const byField = where
