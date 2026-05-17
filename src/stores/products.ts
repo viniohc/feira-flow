@@ -55,11 +55,9 @@ export const useProductsStore = defineStore('products', () => {
     }
 
     await db.products.put(product)
-    try {
-      await saveCloudProduct(product)
-    } catch {
+    void saveCloudProduct(product).catch(() => {
       // Offline-first: o dado local fica salvo e pode ser sincronizado depois.
-    }
+    })
     await loadProducts()
   }
 
@@ -69,11 +67,9 @@ export const useProductsStore = defineStore('products', () => {
       updatedAt: new Date().toISOString(),
     }
     await db.products.update(product.id, updated)
-    try {
-      await updateCloudProduct(product.id, { ...updated, fairId: product.fairId })
-    } catch {
+    void updateCloudProduct(product.id, { ...updated, fairId: product.fairId }).catch(() => {
       // Mantem local e sincroniza depois.
-    }
+    })
     await loadProducts()
   }
 
@@ -86,11 +82,9 @@ export const useProductsStore = defineStore('products', () => {
     }
 
     await db.products.update(product.id, updated)
-    try {
-      await updateCloudProduct(product.id, { ...updated, fairId: product.fairId })
-    } catch {
+    void updateCloudProduct(product.id, { ...updated, fairId: product.fairId }).catch(() => {
       // Mantem local e sincroniza depois.
-    }
+    })
     await loadProducts()
   }
 

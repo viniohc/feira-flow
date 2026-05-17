@@ -79,11 +79,9 @@ export const useSalesStore = defineStore('sales', () => {
     }
 
     await db.sales.add(sale)
-    try {
-      await saveCloudSale(sale)
-    } catch {
+    void saveCloudSale(sale).catch(() => {
       // Offline-first: venda fica local e pode ser sincronizada depois.
-    }
+    })
     await loadSales()
     return sale
   }
@@ -95,11 +93,9 @@ export const useSalesStore = defineStore('sales', () => {
       cancelledAt: new Date().toISOString(),
     })
     if (sale) {
-      try {
-        await cancelCloudSale(sale.fairId, saleId)
-      } catch {
+      void cancelCloudSale(sale.fairId, saleId).catch(() => {
         // Mantem local e sincroniza depois.
-      }
+      })
     }
     await loadSales()
   }
@@ -141,11 +137,9 @@ export const useSalesStore = defineStore('sales', () => {
     }
 
     await db.sales.update(saleId, updatedSale)
-    try {
-      await updateCloudSale(saleId, updatedSale)
-    } catch {
+    void updateCloudSale(saleId, updatedSale).catch(() => {
       // Mantem local e sincroniza depois.
-    }
+    })
     await loadSales()
   }
 
