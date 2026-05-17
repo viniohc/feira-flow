@@ -9,6 +9,8 @@ npm install
 npm run dev
 ```
 
+Antes de usar em outro aparelho, faça login, escolha a feira correta e toque em **Sync** para puxar os dados mais recentes do Firestore.
+
 Para validar:
 
 ```bash
