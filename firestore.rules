@@ -1,0 +1,27 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isFairMember(fairId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/fairs/$(fairId))
+        && get(/databases/$(database)/documents/fairs/$(fairId)).data.members[request.auth.uid] == true;
+    }
+
+    match /fairs/{fairId} {
+      allow create: if signedIn()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.members[request.auth.uid] == true;
+      allow read, update, delete: if signedIn()
+        && resource.data.members[request.auth.uid] == true;
+
+      match /{document=**} {
+        allow read, write: if isFairMember(fairId);
+      }
+    }
+  }
+}
