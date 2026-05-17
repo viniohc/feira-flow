@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import SaleEditPanel from '@/components/SaleEditPanel.vue'
 import SaleHistoryItem from '@/components/SaleHistoryItem.vue'
 import { getDateKey } from '@/services/date'
@@ -58,6 +58,12 @@ const cancelSale = async (saleId: string) => {
   }
 }
 
+const startEditingSale = async (sale: Sale) => {
+  editingSale.value = undefined
+  await nextTick()
+  editingSale.value = sale
+}
+
 const saveEditedSale = async (payload: {
   saleId: string
   items: CartItem[]
@@ -103,6 +109,7 @@ const saveEditedSale = async (payload: {
 
     <SaleEditPanel
       v-if="editingSale"
+      :key="editingSale.id"
       :sale="editingSale"
       :products="productsStore.activeProducts"
       @save="saveEditedSale"
@@ -115,7 +122,7 @@ const saveEditedSale = async (payload: {
         :key="sale.id"
         :sale="sale"
         @cancel="cancelSale"
-        @edit="editingSale = $event"
+        @edit="startEditingSale"
       />
     </div>
 
