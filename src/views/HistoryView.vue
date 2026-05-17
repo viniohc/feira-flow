@@ -4,15 +4,20 @@ import SaleEditPanel from '@/components/SaleEditPanel.vue'
 import SaleHistoryItem from '@/components/SaleHistoryItem.vue'
 import { getDateKey } from '@/services/date'
 import { useProductsStore } from '@/stores/products'
+import { useFairsStore } from '@/stores/fairs'
 import { useSalesStore } from '@/stores/sales'
+import { useSettingsStore } from '@/stores/settings'
 import type { CartItem, PaymentMethod, Sale } from '@/types/models'
 
 const salesStore = useSalesStore()
 const productsStore = useProductsStore()
+const fairsStore = useFairsStore()
+const settingsStore = useSettingsStore()
 const selectedDate = ref(getDateKey())
 const historyMode = ref<'day' | 'all'>('day')
 const editingSale = ref<Sale | undefined>()
 const errorMessage = ref('')
+const syncing = ref(false)
 const sales = computed(() =>
   historyMode.value === 'day'
     ? salesStore.salesByDate(selectedDate.value)
@@ -21,10 +26,28 @@ const sales = computed(() =>
 
 onMounted(async () => {
   await Promise.all([
-    salesStore.sales.length === 0 ? salesStore.loadSales() : Promise.resolve(),
-    productsStore.products.length === 0 ? productsStore.loadProducts() : Promise.resolve(),
+    salesStore.loadSales(),
+    productsStore.loadProducts(),
   ])
 })
+
+const syncNow = async () => {
+  errorMessage.value = ''
+  syncing.value = true
+
+  try {
+    await fairsStore.syncSelectedFairToCloud()
+    await Promise.all([
+      salesStore.loadSales(),
+      productsStore.loadProducts(),
+      settingsStore.loadSettings(),
+    ])
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : 'Não foi possível sincronizar.'
+  } finally {
+    syncing.value = false
+  }
+}
 
 const cancelSale = async (saleId: string) => {
   if (window.confirm('Cancelar esta venda? Ela continuará no histórico.')) {
@@ -68,8 +91,13 @@ const saveEditedSale = async (payload: {
           </button>
         </div>
         <input v-if="historyMode === 'day'" v-model="selectedDate" type="date" class="h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm font-bold">
+        <button type="button" class="h-11 rounded-lg bg-slate-950 px-3 text-sm font-black text-white disabled:bg-slate-300" :disabled="syncing" @click="syncNow">
+          {{ syncing ? 'Sync...' : 'Sync' }}
+        </button>
       </div>
     </header>
+
+    <p v-if="fairsStore.syncMessage && !errorMessage" class="mb-3 rounded-lg bg-slate-900 p-3 text-center text-sm font-black text-white">{{ fairsStore.syncMessage }}</p>
 
     <p v-if="errorMessage" class="mb-3 rounded-lg bg-red-50 p-3 text-sm font-bold text-red-700">{{ errorMessage }}</p>
 

@@ -5,11 +5,19 @@ import { buildReportCsv, downloadCsv } from '@/services/csv'
 import { formatCurrency } from '@/services/currency'
 import { getDateKey } from '@/services/date'
 import { calculateDailyReport, calculateSalesReport } from '@/services/report'
+import { useFairsStore } from '@/stores/fairs'
 import { useSalesStore } from '@/stores/sales'
+import { useProductsStore } from '@/stores/products'
+import { useSettingsStore } from '@/stores/settings'
 
 const salesStore = useSalesStore()
+const fairsStore = useFairsStore()
+const productsStore = useProductsStore()
+const settingsStore = useSettingsStore()
 const selectedDate = ref(getDateKey())
 const reportMode = ref<'day' | 'all'>('day')
+const syncing = ref(false)
+const syncError = ref('')
 const report = computed(() =>
   reportMode.value === 'day'
     ? calculateDailyReport(salesStore.sales, selectedDate.value)
@@ -17,10 +25,26 @@ const report = computed(() =>
 )
 
 onMounted(async () => {
-  if (salesStore.sales.length === 0) {
-    await salesStore.loadSales()
-  }
+  await salesStore.loadSales()
 })
+
+const syncNow = async () => {
+  syncError.value = ''
+  syncing.value = true
+
+  try {
+    await fairsStore.syncSelectedFairToCloud()
+    await Promise.all([
+      salesStore.loadSales(),
+      productsStore.loadProducts(),
+      settingsStore.loadSettings(),
+    ])
+  } catch (error) {
+    syncError.value = error instanceof Error ? error.message : 'Não foi possível sincronizar.'
+  } finally {
+    syncing.value = false
+  }
+}
 
 const exportReport = () => {
   const suffix = reportMode.value === 'day' ? selectedDate.value : 'toda-festa'
@@ -48,8 +72,15 @@ const exportReport = () => {
         <button type="button" class="rounded-lg bg-slate-950 px-3 py-2 text-sm font-black text-white" @click="exportReport">
           CSV
         </button>
+        <button type="button" class="rounded-lg bg-slate-950 px-3 py-2 text-sm font-black text-white disabled:bg-slate-300" :disabled="syncing" @click="syncNow">
+          {{ syncing ? 'Sync...' : 'Sync' }}
+        </button>
       </div>
     </header>
+
+    <p v-if="fairsStore.syncMessage || syncError" class="mb-3 rounded-lg p-3 text-center text-sm font-black" :class="syncError ? 'bg-red-50 text-red-700' : 'bg-slate-900 text-white'">
+      {{ syncError || fairsStore.syncMessage }}
+    </p>
 
     <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
       <ReportCard label="Total" :value="formatCurrency(report.total)" />

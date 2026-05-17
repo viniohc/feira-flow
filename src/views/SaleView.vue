@@ -9,6 +9,8 @@ import { todayLabel } from '@/services/date'
 import { productCategories, useProductsStore } from '@/stores/products'
 import { useCartStore } from '@/stores/cart'
 import { useFairsStore } from '@/stores/fairs'
+import { useSalesStore } from '@/stores/sales'
+import { useSettingsStore } from '@/stores/settings'
 import type { ProductCategory } from '@/types/models'
 
 type SaleCategory = 'Todos' | ProductCategory
@@ -17,9 +19,13 @@ const router = useRouter()
 const productsStore = useProductsStore()
 const cartStore = useCartStore()
 const fairsStore = useFairsStore()
+const salesStore = useSalesStore()
+const settingsStore = useSettingsStore()
 const selectedCategory = ref<SaleCategory>('Todos')
 const drawerOpen = ref(false)
 const savedMessage = ref(false)
+const syncError = ref('')
+const syncing = ref(false)
 
 const categories: SaleCategory[] = ['Todos', ...productCategories]
 
@@ -35,10 +41,26 @@ const goToCheckout = () => {
   }
 }
 
-onMounted(async () => {
-  if (productsStore.products.length === 0) {
-    await productsStore.loadProducts()
+const syncNow = async () => {
+  syncError.value = ''
+  syncing.value = true
+
+  try {
+    await fairsStore.syncSelectedFairToCloud()
+    await Promise.all([
+      productsStore.loadProducts(),
+      salesStore.loadSales(),
+      settingsStore.loadSettings(),
+    ])
+  } catch (error) {
+    syncError.value = error instanceof Error ? error.message : 'Não foi possível sincronizar.'
+  } finally {
+    syncing.value = false
   }
+}
+
+onMounted(async () => {
+  await productsStore.loadProducts()
 
   if (sessionStorage.getItem('saleSaved') === '1') {
     sessionStorage.removeItem('saleSaved')
@@ -59,13 +81,19 @@ onMounted(async () => {
           <p class="text-sm font-semibold text-slate-500">{{ fairsStore.selectedFair?.name ?? 'Feira' }} · {{ todayLabel() }}</p>
         </div>
         <div class="flex items-center gap-2">
-          <button type="button" class="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-700 shadow-sm" @click="fairsStore.syncSelectedFairToCloud()">
-            Sync
+          <button type="button" class="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-700 shadow-sm disabled:opacity-50" :disabled="syncing" @click="syncNow">
+            {{ syncing ? 'Sync...' : 'Sync' }}
           </button>
           <OfflineBadge />
         </div>
       </div>
     </header>
+
+    <div v-if="fairsStore.syncMessage || syncError" class="mx-auto mt-3 max-w-2xl px-4">
+      <div class="rounded-lg px-4 py-3 text-center text-sm font-black" :class="syncError ? 'bg-red-50 text-red-700' : 'bg-slate-900 text-white'">
+        {{ syncError || fairsStore.syncMessage }}
+      </div>
+    </div>
 
     <div v-if="savedMessage" class="mx-auto mt-3 max-w-2xl px-4">
       <div class="rounded-lg bg-emerald-600 px-4 py-3 text-center font-black text-white shadow-lg">
