@@ -85,7 +85,7 @@ const save = () => {
         <div class="flex items-center justify-between gap-3">
           <div>
             <h2 class="text-xl font-black">Editar pedido</h2>
-            <p class="text-sm font-semibold text-slate-500">A venda sera atualizada no historico.</p>
+            <p class="text-sm font-semibold text-slate-500">A venda será atualizada no histórico.</p>
           </div>
           <button type="button" class="rounded-lg bg-slate-100 px-3 py-2 text-sm font-black" @click="$emit('cancel')">
             Fechar
@@ -148,7 +148,7 @@ const save = () => {
           :disabled="!canSave"
           @click="save"
         >
-          Salvar alteracoes
+          Salvar alterações
         </button>
       </footer>
     </div>
