@@ -10,7 +10,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'pwa-icon.svg'],
+      includeAssets: ['novoIcon.svg'],
       manifest: {
         name: 'Caixa da Feira',
         short_name: 'Caixa',
@@ -22,7 +22,7 @@ export default defineConfig({
         background_color: '#f8fafc',
         icons: [
           {
-            src: '/pwa-icon.svg',
+            src: '/novoIcon.svg',
             sizes: 'any',
             type: 'image/svg+xml',
             purpose: 'any maskable',
