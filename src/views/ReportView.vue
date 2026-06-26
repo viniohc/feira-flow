@@ -3,7 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import ReportCard from '@/components/ReportCard.vue'
 import { buildReportCsv, downloadCsv } from '@/services/csv'
 import { formatCurrency } from '@/services/currency'
-import { formatTime, getDateKey, isDateKey } from '@/services/date'
+import { formatDate, formatTime, getDateKey, isDateKey } from '@/services/date'
 import { calculateDailyProductRace, calculateDailyReport, calculateSalesReport } from '@/services/report'
 import { useFairsStore } from '@/stores/fairs'
 import { useSalesStore } from '@/stores/sales'
@@ -21,9 +21,11 @@ const syncError = ref('')
 const showRace = ref(false)
 const racePlaying = ref(false)
 const raceStep = ref(0)
-let raceTimer: ReturnType<typeof window.setInterval> | undefined
+const raceSpeed = ref<0.5 | 1 | 2>(1)
+let raceTimer: ReturnType<typeof window.setTimeout> | undefined
 
-const raceColors = ['#0f766e', '#2563eb', '#c2410c', '#7c3aed', '#be123c', '#15803d', '#a16207', '#4338ca']
+const raceColors = ['#184e2f', '#6b8e23', '#efb22d', '#d97706', '#0f766e', '#2f6f95', '#8f5d1f', '#475569']
+const raceSpeedOptions: Array<0.5 | 1 | 2> = [0.5, 1, 2]
 const report = computed(() =>
   reportMode.value === 'day'
     ? calculateDailyReport(salesStore.sales, selectedDate.value)
@@ -34,6 +36,7 @@ const currentRaceFrame = computed(() => raceFrames.value[raceStep.value])
 const raceRows = computed(() => currentRaceFrame.value?.rows.slice(0, 8) ?? [])
 const maxRaceQuantity = computed(() => Math.max(...raceRows.value.map((row) => row.quantity), 1))
 const raceProgress = computed(() => (raceFrames.value.length ? ((raceStep.value + 1) / raceFrames.value.length) * 100 : 0))
+const raceDelay = computed(() => 360 / raceSpeed.value)
 
 onMounted(async () => {
   await salesStore.loadSales()
@@ -41,6 +44,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   stopRace()
+  document.body.style.overflow = ''
 })
 
 const syncNow = async () => {
@@ -76,9 +80,21 @@ const updateSelectedDate = (event: Event) => {
 const stopRace = () => {
   racePlaying.value = false
   if (raceTimer) {
-    window.clearInterval(raceTimer)
+    window.clearTimeout(raceTimer)
     raceTimer = undefined
   }
+}
+
+const scheduleRaceTick = () => {
+  raceTimer = window.setTimeout(() => {
+    if (raceStep.value >= raceFrames.value.length - 1) {
+      stopRace()
+      return
+    }
+
+    raceStep.value += 1
+    scheduleRaceTick()
+  }, raceDelay.value)
 }
 
 const startRace = () => {
@@ -90,23 +106,7 @@ const startRace = () => {
 
   stopRace()
   racePlaying.value = true
-  raceTimer = window.setInterval(() => {
-    if (raceStep.value >= raceFrames.value.length - 1) {
-      stopRace()
-      return
-    }
-
-    raceStep.value += 1
-  }, 750)
-}
-
-const toggleRace = () => {
-  if (racePlaying.value) {
-    stopRace()
-    return
-  }
-
-  startRace()
+  scheduleRaceTick()
 }
 
 const openRace = () => {
@@ -121,9 +121,27 @@ const restartRace = () => {
   startRace()
 }
 
+const closeRace = () => {
+  showRace.value = false
+  stopRace()
+}
+
+const setRaceSpeed = (speed: 0.5 | 1 | 2) => {
+  raceSpeed.value = speed
+  if (racePlaying.value) {
+    stopRace()
+    racePlaying.value = true
+    scheduleRaceTick()
+  }
+}
+
 watch([selectedDate, raceFrames], () => {
   raceStep.value = 0
   stopRace()
+})
+
+watch(showRace, (isOpen) => {
+  document.body.style.overflow = isOpen ? 'hidden' : ''
 })
 </script>
 
@@ -169,54 +187,6 @@ watch([selectedDate, raceFrames], () => {
       <ReportCard label="Cartão" :value="formatCurrency(report.byPayment.card)" />
     </div>
 
-    <section v-if="showRace" class="mt-5 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-      <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 class="text-lg font-black">Corrida de produtos</h2>
-          <p class="text-sm font-semibold text-slate-500">
-            {{ currentRaceFrame ? `${formatTime(currentRaceFrame.createdAt)} - ${currentRaceFrame.saleCount} vendas` : 'Sem vendas confirmadas neste dia' }}
-          </p>
-        </div>
-        <div class="flex gap-2">
-          <button type="button" class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black text-slate-800 disabled:text-slate-300" :disabled="raceFrames.length === 0" @click="toggleRace">
-            {{ racePlaying ? 'Pausar' : 'Play' }}
-          </button>
-          <button type="button" class="rounded-lg bg-slate-950 px-3 py-2 text-sm font-black text-white disabled:bg-slate-300" :disabled="raceFrames.length === 0" @click="restartRace">
-            Reiniciar
-          </button>
-        </div>
-      </div>
-
-      <div class="mb-4 h-2 overflow-hidden rounded-full bg-slate-100">
-        <div class="h-full rounded-full bg-emerald-600 transition-all duration-500" :style="{ width: `${raceProgress}%` }" />
-      </div>
-
-      <div v-if="raceRows.length" class="space-y-3">
-        <article v-for="(row, index) in raceRows" :key="row.productId" class="grid grid-cols-[2.25rem_1fr_4rem] items-center gap-3">
-          <span class="grid h-9 w-9 place-items-center rounded-full bg-slate-100 text-sm font-black text-slate-700">{{ row.rank }}</span>
-          <div class="min-w-0">
-            <div class="mb-1 flex items-center justify-between gap-3">
-              <p class="truncate text-sm font-black text-slate-950">{{ row.productName }}</p>
-              <p class="shrink-0 text-xs font-bold text-slate-500">{{ formatCurrency(row.total) }}</p>
-            </div>
-            <div class="h-7 overflow-hidden rounded-md bg-slate-100">
-              <div
-                class="flex h-full items-center rounded-md px-2 text-xs font-black text-white transition-all duration-500"
-                :style="{ width: `${Math.max((row.quantity / maxRaceQuantity) * 100, 10)}%`, backgroundColor: raceColors[index % raceColors.length] }"
-              >
-                {{ row.quantity }}
-              </div>
-            </div>
-          </div>
-          <p class="text-right text-sm font-black text-slate-900">{{ row.quantity }} un.</p>
-        </article>
-      </div>
-
-      <p v-else class="py-8 text-center font-semibold text-slate-500">
-        Sem vendas confirmadas neste dia.
-      </p>
-    </section>
-
     <section class="mt-5 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
       <h2 class="mb-3 text-lg font-black">Produtos vendidos</h2>
       <div class="space-y-3">
@@ -235,5 +205,97 @@ watch([selectedDate, raceFrames], () => {
         Sem vendas confirmadas neste período.
       </p>
     </section>
+
+    <div v-if="showRace" class="fixed inset-0 z-50 flex h-dvh flex-col bg-white text-slate-950">
+      <header class="shrink-0 bg-slate-900 px-3 py-3 text-white">
+        <div class="flex items-center justify-between gap-3">
+          <div class="min-w-0">
+            <h2 class="truncate text-lg font-black">Corrida de produtos</h2>
+            <p class="text-xs font-bold text-slate-300">{{ formatDate(selectedDate) }}</p>
+          </div>
+          <button type="button" class="rounded-md bg-white/10 px-3 py-2 text-sm font-black text-white" @click="closeRace">
+            Fechar
+          </button>
+        </div>
+      </header>
+
+      <main class="flex min-h-0 flex-1 flex-col px-3 py-3">
+        <div class="mb-2 flex items-end justify-between gap-3">
+          <div>
+            <p class="text-xs font-black uppercase text-slate-500">Unidades acumuladas</p>
+            <p class="text-sm font-bold text-slate-500">{{ currentRaceFrame ? `${currentRaceFrame.saleCount} vendas` : 'Sem vendas' }}</p>
+          </div>
+          <p class="text-right text-5xl font-black leading-none text-slate-900">
+            {{ currentRaceFrame ? formatTime(currentRaceFrame.createdAt) : '--:--' }}
+          </p>
+        </div>
+
+        <div class="mb-2 h-1.5 overflow-hidden bg-slate-200">
+          <div class="h-full bg-slate-900 transition-all duration-200" :style="{ width: `${raceProgress}%` }" />
+        </div>
+
+        <div class="mb-1 grid grid-cols-[2rem_1fr_3.5rem] gap-2 text-[10px] font-black uppercase text-slate-400">
+          <span>#</span>
+          <div class="flex justify-between">
+            <span>0</span>
+            <span>{{ maxRaceQuantity }}</span>
+          </div>
+          <span class="text-right">Qtd</span>
+        </div>
+
+        <div v-if="raceRows.length" class="min-h-0 flex-1 overflow-hidden">
+          <div class="divide-y divide-white">
+            <article v-for="(row, index) in raceRows" :key="row.productId" class="grid h-12 grid-cols-[2rem_1fr_3.5rem] items-center gap-2 bg-slate-50">
+              <span class="text-center text-sm font-black text-slate-500">{{ row.rank }}</span>
+              <div class="min-w-0">
+                <div class="h-10 bg-slate-200">
+                  <div
+                    class="flex h-full min-w-12 items-center overflow-hidden px-2 text-xs font-black text-white transition-all duration-200 ease-linear"
+                    :style="{ width: `${Math.max((row.quantity / maxRaceQuantity) * 100, 8)}%`, backgroundColor: raceColors[index % raceColors.length] }"
+                  >
+                    <span class="truncate">{{ row.productName }}</span>
+                  </div>
+                </div>
+              </div>
+              <span class="text-right text-sm font-black text-slate-900">{{ row.quantity }}</span>
+            </article>
+          </div>
+        </div>
+
+        <p v-else class="grid flex-1 place-items-center text-center font-semibold text-slate-500">
+          Sem vendas confirmadas neste dia.
+        </p>
+      </main>
+
+      <footer class="shrink-0 border-t border-slate-200 bg-white px-3 py-3">
+        <div class="mb-3 grid grid-cols-3 border border-slate-200 bg-slate-100 p-1">
+          <button
+            v-for="speed in raceSpeedOptions"
+            :key="speed"
+            type="button"
+            class="py-2 text-sm font-black"
+            :class="raceSpeed === speed ? 'bg-slate-900 text-white' : 'text-slate-600'"
+            @click="setRaceSpeed(speed)"
+          >
+            {{ speed }}x
+          </button>
+        </div>
+
+        <div class="grid grid-cols-4 gap-2">
+          <button type="button" class="bg-emerald-700 px-2 py-3 text-sm font-black text-white disabled:bg-slate-300" :disabled="racePlaying || raceFrames.length === 0" @click="startRace">
+            Play
+          </button>
+          <button type="button" class="bg-slate-900 px-2 py-3 text-sm font-black text-white disabled:bg-slate-300" :disabled="!racePlaying" @click="stopRace">
+            Pausar
+          </button>
+          <button type="button" class="bg-slate-900 px-2 py-3 text-sm font-black text-white disabled:bg-slate-300" :disabled="raceFrames.length === 0" @click="restartRace">
+            Reiniciar
+          </button>
+          <button type="button" class="bg-slate-200 px-2 py-3 text-sm font-black text-slate-900" @click="closeRace">
+            Fechar
+          </button>
+        </div>
+      </footer>
+    </div>
   </section>
 </template>
