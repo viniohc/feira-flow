@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import SaleEditPanel from '@/components/SaleEditPanel.vue'
 import SaleHistoryItem from '@/components/SaleHistoryItem.vue'
-import { getDateKey } from '@/services/date'
+import { getDateKey, isDateKey } from '@/services/date'
 import { useProductsStore } from '@/stores/products'
 import { useFairsStore } from '@/stores/fairs'
 import { useSalesStore } from '@/stores/sales'
@@ -81,6 +81,13 @@ const saveEditedSale = async (payload: {
     errorMessage.value = error instanceof Error ? error.message : 'Não foi possível editar a venda.'
   }
 }
+
+const updateSelectedDate = (event: Event) => {
+  const value = (event.target as HTMLInputElement).value
+  if (isDateKey(value)) {
+    selectedDate.value = value
+  }
+}
 </script>
 
 <template>
@@ -99,7 +106,7 @@ const saveEditedSale = async (payload: {
             Festa
           </button>
         </div>
-        <input v-if="historyMode === 'day'" v-model="selectedDate" type="date" class="h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm font-bold">
+        <input v-if="historyMode === 'day'" :value="selectedDate" type="date" class="h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm font-bold" @input="updateSelectedDate">
         <button type="button" class="h-11 rounded-lg bg-slate-950 px-3 text-sm font-black text-white disabled:bg-slate-300" :disabled="syncing" @click="syncNow">
           {{ syncing ? 'Sync...' : 'Sync' }}
         </button>

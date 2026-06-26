@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { db } from '@/services/db'
+import { db, persistNormalizedSalesDateKeys } from '@/services/db'
 import { getDateKey } from '@/services/date'
 import { useFairsStore } from '@/stores/fairs'
 import type { CartItem, PaymentMethod, Sale } from '@/types/models'
@@ -43,7 +43,8 @@ export const useSalesStore = defineStore('sales', () => {
     }
 
     loading.value = true
-    sales.value = (await db.sales.where('fairId').equals(fairsStore.selectedFairId).toArray()).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    const storedSales = await db.sales.where('fairId').equals(fairsStore.selectedFairId).toArray()
+    sales.value = (await persistNormalizedSalesDateKeys(storedSales)).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     loading.value = false
   }
 

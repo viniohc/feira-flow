@@ -1,4 +1,5 @@
 import Dexie, { type Table } from 'dexie'
+import { getDateKey } from '@/services/date'
 import type { Fair, Product, Sale, Settings } from '@/types/models'
 
 const nowIso = () => new Date().toISOString()
@@ -32,6 +33,24 @@ export class FeiraDatabase extends Dexie {
 }
 
 export const db = new FeiraDatabase()
+
+export const normalizeSalesDateKeys = (sales: Sale[]) =>
+  sales.map((sale) => ({
+    ...sale,
+    dateKey: getDateKey(sale.createdAt),
+  }))
+
+export const persistNormalizedSalesDateKeys = async (sales: Sale[]) => {
+  const normalizedSales = normalizeSalesDateKeys(sales)
+
+  await Promise.all(
+    normalizedSales
+      .filter((sale, index) => sale.dateKey !== sales[index].dateKey)
+      .map((sale) => db.sales.update(sale.id, { dateKey: sale.dateKey })),
+  )
+
+  return normalizedSales
+}
 
 export const migrateLegacyDataToFair = async (fairId: string) => {
   const [products, sales, settings] = await Promise.all([

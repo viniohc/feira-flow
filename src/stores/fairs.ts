@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { cleanupDuplicateProducts, db, migrateLegacyDataToFair, seedDatabase } from '@/services/db'
+import { cleanupDuplicateProducts, db, migrateLegacyDataToFair, normalizeSalesDateKeys, seedDatabase } from '@/services/db'
 import { listCloudFairs, saveCloudFair } from '@/services/firestore/fairs'
 import { listCloudProducts, saveCloudProduct } from '@/services/firestore/products'
 import { listCloudSales, saveCloudSale } from '@/services/firestore/sales'
@@ -79,12 +79,18 @@ export const useFairsStore = defineStore('fairs', () => {
       listCloudSales(selectedFairId.value),
       getCloudSettings(selectedFairId.value),
     ])
+    const normalizedCloudSales = normalizeSalesDateKeys(cloudSales)
 
     await Promise.all([
       cloudProducts.length ? db.products.bulkPut(cloudProducts) : Promise.resolve(),
-      cloudSales.length ? db.sales.bulkPut(cloudSales) : Promise.resolve(),
+      normalizedCloudSales.length ? db.sales.bulkPut(normalizedCloudSales) : Promise.resolve(),
       cloudSettings ? db.settings.put(cloudSettings) : Promise.resolve(),
     ])
+    await Promise.all(
+      normalizedCloudSales
+        .filter((sale, index) => sale.dateKey !== cloudSales[index].dateKey)
+        .map(saveCloudSale),
+    )
     await cleanupDuplicateProducts(selectedFairId.value)
 
     syncMessage.value = 'Dados atualizados'

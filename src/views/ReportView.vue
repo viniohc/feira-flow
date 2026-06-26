@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import ReportCard from '@/components/ReportCard.vue'
 import { buildReportCsv, downloadCsv } from '@/services/csv'
 import { formatCurrency } from '@/services/currency'
-import { getDateKey } from '@/services/date'
+import { getDateKey, isDateKey } from '@/services/date'
 import { calculateDailyReport, calculateSalesReport } from '@/services/report'
 import { useFairsStore } from '@/stores/fairs'
 import { useSalesStore } from '@/stores/sales'
@@ -50,6 +50,13 @@ const exportReport = () => {
   const suffix = reportMode.value === 'day' ? selectedDate.value : 'toda-festa'
   downloadCsv(`relatorio-${suffix}.csv`, buildReportCsv(report.value))
 }
+
+const updateSelectedDate = (event: Event) => {
+  const value = (event.target as HTMLInputElement).value
+  if (isDateKey(value)) {
+    selectedDate.value = value
+  }
+}
 </script>
 
 <template>
@@ -68,7 +75,7 @@ const exportReport = () => {
             Festa
           </button>
         </div>
-        <input v-if="reportMode === 'day'" v-model="selectedDate" type="date" class="h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm font-bold">
+        <input v-if="reportMode === 'day'" :value="selectedDate" type="date" class="h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm font-bold" @input="updateSelectedDate">
         <button type="button" class="rounded-lg bg-slate-950 px-3 py-2 text-sm font-black text-white" @click="exportReport">
           CSV
         </button>
