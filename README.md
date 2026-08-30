@@ -1,4 +1,4 @@
-# Caixa da Feira
+# Feira Flow
 
 PWA offline-first em Vue 3 para controle rápido de pedidos e vendas em festa/feira.
 
